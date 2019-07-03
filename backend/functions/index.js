@@ -2,10 +2,19 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const express = require('express');
 const firebase = require('firebase');
-
-require('./firebaseconfig.js');
+const Sentry = require('@sentry/node');
 
 const app = express();
+
+// ? Initialize Sentry error tracking
+
+Sentry.init({
+  dsn: 'https://a673b46e84ef4235bbf4682aab7c7025@sentry.io/1496470',
+});
+
+app.use(Sentry.Handlers.requestHandler());
+
+require('./firebaseconfig.js');
 
 // ? There was an issue that required a service account to be added
 const serviceAccount = require('./serviceAccount.json');
@@ -36,11 +45,46 @@ const isStrongPassword = password => {
   return strongRegex.test(password);
 };
 
-console.log('test');
+// ? Middleware functions
+
+const authenticate = (request, response, next) => {
+  let userToken;
+  if (
+    request.headers.authorization &&
+    request.headers.authorization.startsWith('Bearer ')
+  ) {
+    userToken = request.headers.authorization = request.headers.authorization.split(
+      'Bearer '
+    )[1];
+  } else {
+    Sentry.captureEvent('Unauthorized Request');
+    return response.status(403).json('Unauthorized');
+  }
+  return admin
+    .auth()
+    .verifyIdToken(userToken)
+    .then(decodedToken => {
+      request.user = decodedToken;
+      console.log(decodedToken);
+      return db
+        .collection('users')
+        .where('userId', '==', request.user.uid)
+        .limit(1)
+        .get();
+    })
+    .then(data => {
+      request.user.handle = data.docs[0].data().handle;
+      return next();
+    })
+    .catch(err => {
+      Sentry.captureEvent(err);
+      return response.status(403).json(err);
+    });
+};
 
 // * CRUD Routes for Posts
 
-app.get('/posts', (request, response) => {
+app.get('/posts', authenticate, (request, response) => {
   db.collection('posts')
     .orderBy('createdAt', 'desc')
     .get()
@@ -58,29 +102,36 @@ app.get('/posts', (request, response) => {
       return response.status(200).json(posts);
     })
     .catch(err => {
+      Sentry.captureEvent(err);
       return response
         .status(500)
         .json({ error: `Something went wrong... ${err.code}` });
     });
 });
 
-app.post('/post', (request, response) => {
+app.post('/post', authenticate, (request, response) => {
+  if (request.body.body.trim() === '') {
+    Sentry.captureEvent('Body must have some content');
+    return response.status(400).json({ body: `body must not be empty` });
+  }
+
   const newPost = {
-    userHandle: request.body.userHandle,
+    userHandle: request.user.handle,
     body: request.body.body,
     createdAt: new Date().toISOString(),
   };
 
-  db.collection('posts')
+  return db
+    .collection('posts')
     .add(newPost)
-    // eslint-disable-next-line promise/always-return
     .then(doc => {
-      response
+      return response
         .status(200)
         .json({ message: `Document: ${doc.id} created successfully.` });
     })
     .catch(err => {
-      response
+      Sentry.captureEvent(err);
+      return response
         .status(500)
         .json({ error: `Something went wrong... ${err.code}` });
     });
@@ -153,6 +204,7 @@ app.post('/signup', (request, response) => {
       return response.status(201).json({ token });
     })
     .catch(err => {
+      Sentry.captureEvent(err);
       if (err.code === 'auth/email-already-in-use') {
         return response.status(400).json({ error: `Email is already in use` });
       } else {
@@ -193,6 +245,7 @@ app.post('/login', (request, response) => {
       return response.json({ token });
     })
     .catch(err => {
+      Sentry.captureEvent(err);
       if (err.code === 'auth/wrong-password') {
         return response
           .status(403)
@@ -204,5 +257,7 @@ app.post('/login', (request, response) => {
       }
     });
 });
+
+app.use(Sentry.Handlers.errorHandler());
 
 exports.api = functions.region('us-east1').https.onRequest(app);
