@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 const express = require('express');
 const firebase = require('firebase');
 
-const firebaseConfig = require('./firebaseconfig.json');
+require('./firebaseconfig.js');
 
 const app = express();
 
@@ -18,6 +18,25 @@ firebase.initializeApp(firebaseConfig);
 // ? Create a local db object for reference
 
 const db = admin.firestore();
+
+// ? Helper functions
+
+const isEmpty = string => {
+  return string.trim() === '';
+};
+
+const isValidEmail = email => {
+  // ? This regex matches valid emails
+  const validEmailFormat = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+  return validEmailFormat.test(email);
+};
+
+const isStrongPassword = password => {
+  const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
+  return strongRegex.test(password);
+};
+
+console.log('test');
 
 // * CRUD Routes for Posts
 
@@ -39,8 +58,9 @@ app.get('/posts', (request, response) => {
       return response.status(200).json(posts);
     })
     .catch(err => {
-      response.status(500).json({ error: `Something went wrong... ${err}` });
-      console.error(err);
+      return response
+        .status(500)
+        .json({ error: `Something went wrong... ${err.code}` });
     });
 });
 
@@ -60,8 +80,9 @@ app.post('/post', (request, response) => {
         .json({ message: `Document: ${doc.id} created successfully.` });
     })
     .catch(err => {
-      console.error(err);
-      response.status(500).json({ error: `Something went wrong... ${err}` });
+      response
+        .status(500)
+        .json({ error: `Something went wrong... ${err.code}` });
     });
 });
 
@@ -74,6 +95,32 @@ app.post('/signup', (request, response) => {
     confirmPassword: request.body.confirmPassword,
     handle: request.body.handle,
   };
+
+  let errors = {};
+
+  if (isEmpty(newUser.email)) {
+    errors.email = 'must not be empty';
+  } else if (!isValidEmail(newUser.email)) {
+    errors.email = 'must be valid';
+  }
+
+  if (isEmpty(newUser.password)) {
+    errors.password = 'must not be empty';
+  } else if (!isStrongPassword(newUser.password)) {
+    errors.password =
+      'must contain the following: 1 digit, 1 uppercase character, 1 lowercase character, at be least 8 characters long';
+  } else if (newUser.password !== newUser.confirmPassword) {
+    errors.password = 'passwords must match';
+  }
+
+  if (isEmpty(newUser.handle)) {
+    errors.handle = 'must not be empty';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    response.status(400).json(errors);
+  }
+
   // TODO: Validate form inputs
   let token, userId;
   db.doc(`/users/${newUser.handle}`)
@@ -106,13 +153,54 @@ app.post('/signup', (request, response) => {
       return response.status(201).json({ token });
     })
     .catch(err => {
-      console.error(err);
       if (err.code === 'auth/email-already-in-use') {
         return response.status(400).json({ error: `Email is already in use` });
       } else {
         return response
           .status(500)
-          .json({ error: `Something went wrong... ${err}` });
+          .json({ error: `Something went wrong... ${err.code}` });
+      }
+    });
+});
+
+app.post('/login', (request, response) => {
+  const user = {
+    email: request.body.email,
+    password: request.body.password,
+  };
+
+  let errors = {};
+
+  if (isEmpty(user['email'])) {
+    errors.email = 'must not be empty';
+  }
+
+  if (isEmpty(user['password'])) {
+    errors.password = 'must not be empty';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return response.status(400).json(errors);
+  }
+
+  return firebase
+    .auth()
+    .signInWithEmailAndPassword(user.email, user.password)
+    .then(data => {
+      return data.user.getIdToken();
+    })
+    .then(token => {
+      return response.json({ token });
+    })
+    .catch(err => {
+      if (err.code === 'auth/wrong-password') {
+        return response
+          .status(403)
+          .json({ general: 'incorrect email/password' });
+      } else {
+        return response
+          .status(500)
+          .json({ error: `Something went wrong... ${err.code}` });
       }
     });
 });
