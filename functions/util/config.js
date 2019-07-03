@@ -1,4 +1,4 @@
-firebaseConfig = {
+module.exports = {
   apiKey: 'AIzaSyAx-q9UOGbHAmex5_u1gkgvnlLD4E8YSCA',
   authDomain: 'postr-7e7e0.firebaseapp.com',
   databaseURL: 'https://postr-7e7e0.firebaseio.com',
