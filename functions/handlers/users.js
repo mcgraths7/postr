@@ -16,11 +16,9 @@ exports.signup = (req, res) => {
     handle: req.body.handle,
   };
 
-  const { valid, errors } = validateSignupData(newUser);
+  const { isValid, errors } = validateSignupData(newUser);
 
-  if (!valid) return res.status(400).json(errors);
-
-  const noImg = 'no-img.png';
+  if (!isValid) return res.status(400).json(errors);
 
   let token, userId;
   db.doc(`/users/${newUser.handle}`)
@@ -44,9 +42,6 @@ exports.signup = (req, res) => {
         handle: newUser.handle,
         email: newUser.email,
         createdAt: new Date().toISOString(),
-        imageUrl: `https://firebasestorage.googleapis.com/v0/b/${
-          config.storageBucket
-        }/o/${noImg}?alt=media`,
         userId,
       };
       return db.doc(`/users/${newUser.handle}`).set(userCredentials);
@@ -72,9 +67,9 @@ exports.login = (req, res) => {
     password: req.body.password,
   };
 
-  const { valid, errors } = validateLoginData(user);
+  const { isValid, errors } = validateLoginData(user);
 
-  if (!valid) return res.status(400).json(errors);
+  if (!isValid) return res.status(400).json(errors);
 
   firebase
     .auth()
@@ -87,8 +82,6 @@ exports.login = (req, res) => {
     })
     .catch(err => {
       console.error(err);
-      // auth/wrong-password
-      // auth/user-not-user
       return res
         .status(403)
         .json({ general: 'Wrong credentials, please try again' });

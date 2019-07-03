@@ -8,8 +8,8 @@ const { getAllPosts, newPost } = require('./handlers/posts');
 const { signup, login } = require('./handlers/users');
 
 // Scream routes
-app.get('/screams', getAllPosts);
-app.post('/scream', auth, newPost);
+app.get('/posts', getAllPosts);
+app.post('/post', auth, newPost);
 
 // users routes
 app.post('/signup', signup);

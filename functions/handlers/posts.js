@@ -37,8 +37,8 @@ exports.newPost = (req, res) => {
     .add(newPost)
     .then(doc => {
       const resPost = newPost;
-      resPost.screamId = doc.id;
-      res.json(resPost);
+      resPost.postId = doc.id;
+      res.status(201).json(resPost);
     })
     .catch(err => {
       res.status(500).json({ error: 'something went wrong' });
