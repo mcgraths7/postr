@@ -13,6 +13,7 @@
     "node": "8"
   },
   "dependencies": {
+    "email-validator": "^2.0.4",
     "express": "^4.17.1",
     "firebase": "^6.2.4",
     "firebase-admin": "^8.0.0",
