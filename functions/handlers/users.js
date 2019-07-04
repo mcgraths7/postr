@@ -106,6 +106,9 @@ exports.uploadImage = (req, res) => {
   busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
     // ? Splits the filename and retrieves the extension
     const imageExtension = filename.split('.').slice(-1)[0];
+    if (mimetype !== 'image/jpeg' && mimetype !== 'image/png') {
+      return res.status(400).json({ error: `Invalid file format.` });
+    }
 
     // ? Generates a random string and concatenates the extension
     imageFileName = `${Math.random()
@@ -143,7 +146,7 @@ exports.uploadImage = (req, res) => {
         return db.doc(`/users/${req.user.handle}`).update({ imageUrl });
       })
       .then(() => {
-        return res.json('Image upload successful');
+        return res.json({ message: 'Image upload successful' });
       })
       .catch(err => {
         return res
