@@ -25,6 +25,6 @@ app.post('/post', auth, newPost);
 app.post('/signup', signup);
 app.post('/login', login);
 app.post('/me/image', auth, uploadImage);
-// app.post('/me', auth, addUserDetails);
+app.post('/me', auth, addUserDetails);
 
 exports.api = functions.region('us-east1').https.onRequest(app);

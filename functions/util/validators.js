@@ -13,6 +13,28 @@ const isStrongPassword = password => {
   return strongRegex.test(password);
 };
 
+exports.reduceUserDetails = data => {
+  let userDetails = {};
+
+  if (!isEmpty(data.bio.trim())) {
+    userDetails.bio = data.bio;
+  }
+  if (!isEmpty(data.website.trim())) {
+    if (
+      data.website.trim().startsWith('https://') ||
+      data.website.trim().startsWith('http://')
+    ) {
+      userDetails.website = data.website;
+    } else {
+      userDetails.website = `http://${data.website}`;
+    }
+  }
+  if (!isEmpty(data.location.trim())) {
+    userDetails.location = data.location;
+  }
+  return userDetails;
+};
+
 exports.validateSignupData = data => {
   let errors = {};
 

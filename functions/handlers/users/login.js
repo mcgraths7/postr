@@ -1,4 +1,4 @@
-// const firebase = require('firebase');
+const firebase = require('firebase');
 
 const { validateLoginData } = require('../../util/validators');
 
